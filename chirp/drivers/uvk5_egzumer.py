@@ -29,64 +29,10 @@ from chirp.settings import RadioSetting, RadioSettingGroup, \
 LOG = logging.getLogger(__name__)
 
 MEM_FORMAT = """
-//#seekto 0x0000;
-struct {
-  ul32 freq;
-  ul32 offset;
-
-// 0x08
-  u8 rxcode;
-  u8 txcode;
-
-// 0x0A
-  u8 txcodeflag:4,
-  rxcodeflag:4;
-
-// 0x0B
-  u8 modulation:4,
-  shift:4;
-
-// 0x0C
-  u8 __UNUSED1:3,
-  bclo:1,
-  txpower:2,
-  bandwidth:1,
-  freq_reverse:1;
-
-  // 0x0D
-  u8 __UNUSED2:4,
-  dtmf_pttid:3,
-  dtmf_decode:1;
-
-  // 0x0E
-  u8 step;
-  u8 scrambler;
-
-} channel[214];
-
-//#seekto 0xd60;
-struct {
-u8 is_scanlist1:1,
-is_scanlist2:1,
-compander:2,
-is_free:1,
-band:3;
-} channel_attributes[207];
-
 #seekto 0xe40;
 ul16 fmfreq[20];
 
-#seekto 0xe70;
-u8 call_channel;
-u8 squelch;
-u8 max_talk_time;
-u8 noaa_autoscan;
-u8 key_lock;
-u8 vox_switch;
-u8 vox_level;
-u8 mic_gain;
-
-
+#seekto 0xe78;
 u8 backlight_min:4,
 backlight_max:4;
 
@@ -97,16 +43,6 @@ u8 dual_watch;
 u8 backlight_time;
 u8 ste;
 u8 freq_mode_allowed;
-
-#seekto 0xe80;
-u8 ScreenChannel_A;
-u8 MrChannel_A;
-u8 FreqChannel_A;
-u8 ScreenChannel_B;
-u8 MrChannel_B;
-u8 FreqChannel_B;
-u8 NoaaChannel_A;
-u8 NoaaChannel_B;
 
 #seekto 0xe90;
 
@@ -163,15 +99,6 @@ struct {
     char down_code[16];
 } dtmf;
 
-//#seekto 0xf18;
-u8 slDef;
-u8 sl1PriorEnab;
-u8 sl1PriorCh1;
-u8 sl1PriorCh2;
-u8 sl2PriorEnab;
-u8 sl2PriorCh1;
-u8 sl2PriorCh2;
-
 #seekto 0xf40;
 u8 int_flock;
 u8 int_350tx;
@@ -189,11 +116,6 @@ u8  backlight_on_TX_RX:2,
     live_DTMF_decoder:1,
     unknown:1;
 
-
-#seekto 0xf50;
-struct {
-char name[16];
-} channelname[200];
 
 #seekto 0x1c00;
 struct {
@@ -306,6 +228,93 @@ u8 __UNUSED:3,
    ENABLE_FLASHLIGHT:1;
 } BUILD_OPTIONS;
 
+
+// 0x0E80 EEPROM_DISP_CH_STORE_OFF
+#seekto 0x2000;
+u16 ScreenChannel_A;
+u16 MrChannel_A;
+u16 FreqChannel_A;
+u16 ScreenChannel_B;
+u16 MrChannel_B;
+u16 FreqChannel_B;
+u16 NoaaChannel_A;
+u16 NoaaChannel_B;
+
+// 0x0E70 EEPROM_SETTINGS_OFF
+//#seekto 0x2010;
+u16 call_channel;
+u16 squelch;
+u16 max_talk_time;
+u16 noaa_autoscan;
+u16 key_lock;
+u16 vox_switch;
+u16 vox_level;
+u16 mic_gain;
+
+// 0x0E70 EEPROM_SCANLIST_OFF
+//#seekto 0x2020;
+u16 slDef;
+u16 sl1PriorEnab;
+u16 sl1PriorCh1;
+u16 sl1PriorCh2;
+u16 sl2PriorEnab;
+u16 sl2PriorCh1;
+u16 sl2PriorCh2;
+//u16 unused
+
+// 0x0F50 EEPROM_MR_CH_NAME_OFF
+#seekto 0x2030;
+struct {
+    char name[16];
+} channelname[999];
+
+// 0x0000 EEPROM_MR_CH_FREQ_OFF
+// 0x0C80 EEPROM_FREQ_CH_FREQ_OFF
+//#seekto 0x5ea0;
+struct {
+  ul32 freq;
+  ul32 offset;
+
+// 0x08
+  u8 rxcode;
+  u8 txcode;
+
+// 0x0A
+  u8 txcodeflag:4,
+  rxcodeflag:4;
+
+// 0x0B
+  u8 modulation:4,
+  shift:4;
+
+// 0x0C
+  u8 __UNUSED1:3,
+  bclo:1,
+  txpower:2,
+  bandwidth:1,
+  freq_reverse:1;
+
+  // 0x0D
+  u8 __UNUSED2:4,
+  dtmf_pttid:3,
+  dtmf_decode:1;
+
+  // 0x0E
+  u8 step;
+  u8 scrambler;
+
+} channel[1013];
+
+// 0x0D60 EEPROM_MR_CH_ATTR_OFF
+// 0x0E28 EEPROM_FREQ_CH_ATTR_OFF
+//#seekto 0x0df0;
+struct {
+  u8 is_scanlist1:1,
+  is_scanlist2:1,
+  compander:2,
+  is_free:1,
+   band:3;
+} channel_attributes[1006];
 """
 
 
@@ -370,6 +379,11 @@ ROGER_LIST = ["Off", "Roger beep", "MDC data burst"]
 RTE_LIST = ["Off", "100ms", "200ms", "300ms", "400ms",
             "500ms", "600ms", "700ms", "800ms", "900ms", "1000ms"]
 VOX_LIST = ["Off", "1", "2", "3", "4", "5", "6", "7", "8", "9", "10"]
+
+# eeprom 8k: 0x2000
+MEM_SIZE = 0x10000
+# eeprom 8k: 0x1e00
+PROG_SIZE = 0x10000
 
 # fm radio supported frequencies
 FMMIN = 76.0
@@ -453,6 +467,12 @@ class UVK5RadioEgzumer(uvk5.UVK5RadioBase):
     NEEDS_COMPAT_SERIAL = False
     FIRMWARE_VERSION = ""
     _cal_start = 0x1E00  # calibration memory start address
+    _cal_end= 0x2000  # calibration memory end
+    _cal_len = _cal_end - _cal_start  # calibration memory length
+    _mem_size = MEM_SIZE # eeprom total size
+    _prog_size = PROG_SIZE # eeprom size without calibration
+    _channels = 999  # number of MR channels
+    _channels_mask = 0xffff  # max channel number
     _pttid_list = ["Off", "Up code", "Down code", "Up+Down code",
                    "Apollo Quindar"]
     _steps = [2.5, 5, 6.25, 10, 12.5, 25, 8.33, 0.01, 0.05, 0.1, 0.25, 0.5, 1,
@@ -492,7 +512,7 @@ class UVK5RadioEgzumer(uvk5.UVK5RadioBase):
         """generates SPECIALS"""
         specials = {}
         for idx, name in enumerate(self._get_vfo_channel_names()):
-            specials[name] = 200 + idx
+            specials[name] = self._channels + idx
         return specials
 
     # Return information about this radio's features, including
@@ -501,6 +521,8 @@ class UVK5RadioEgzumer(uvk5.UVK5RadioBase):
         rf = super().get_features()
         rf.valid_special_chans = self._get_vfo_channel_names()
         rf.valid_modes = ["FM", "NFM", "AM", "NAM", "USB"]
+
+        rf.memory_bounds = (1, self._channels)
 
         rf.valid_bands = []
         bands = self._get_bands()
@@ -532,7 +554,7 @@ class UVK5RadioEgzumer(uvk5.UVK5RadioBase):
         except KeyError:
             number -= 1
 
-        if number < 200:
+        if number < self._channels:
             comp = list_def(self._memobj.channel_attributes[number].compander,
                             COMPANDER_LIST, 0)
         else:
@@ -556,7 +578,7 @@ class UVK5RadioEgzumer(uvk5.UVK5RadioBase):
         except KeyError:
             number = mem.number - 1
 
-        if number < 200 and 'compander' in mem.extra:
+        if number < self._channels and 'compander' in mem.extra:
             self._memobj.channel_attributes[number].compander = (
                 COMPANDER_LIST.index(str(mem.extra['compander'].value)))
 
@@ -574,9 +596,9 @@ class UVK5RadioEgzumer(uvk5.UVK5RadioBase):
             # VFO_A e80 ScreenChannel_A
             if elname == "VFO_A_chn":
                 _mem.ScreenChannel_A = element.value
-                if _mem.ScreenChannel_A < 200:
+                if _mem.ScreenChannel_A < self._channels:
                     _mem.MrChannel_A = _mem.ScreenChannel_A
-                elif _mem.ScreenChannel_A < 207:
+                elif _mem.ScreenChannel_A < (self._channels + 7):
                     _mem.FreqChannel_A = _mem.ScreenChannel_A
                 else:
                     _mem.NoaaChannel_A = _mem.ScreenChannel_A
@@ -584,9 +606,9 @@ class UVK5RadioEgzumer(uvk5.UVK5RadioBase):
             # VFO_B e83
             elif elname == "VFO_B_chn":
                 _mem.ScreenChannel_B = element.value
-                if _mem.ScreenChannel_B < 200:
+                if _mem.ScreenChannel_B < self._channels:
                     _mem.MrChannel_B = _mem.ScreenChannel_B
-                elif _mem.ScreenChannel_B < 207:
+                elif _mem.ScreenChannel_B < (self._channels + 7):
                     _mem.FreqChannel_B = _mem.ScreenChannel_B
                 else:
                     _mem.NoaaChannel_B = _mem.ScreenChannel_B
@@ -861,8 +883,8 @@ class UVK5RadioEgzumer(uvk5.UVK5RadioBase):
             elif elname in ["sl1PriorCh1", "sl1PriorCh2", "sl2PriorCh1",
                             "sl2PriorCh2"]:
                 val = int(element.value)
-                if val > 200 or val < 1:
-                    val = 0xff
+                if val > self._channels or val < 1:
+                    val = self._channels_mask
                 else:
                     val -= 1
 
@@ -1154,7 +1176,7 @@ class UVK5RadioEgzumer(uvk5.UVK5RadioBase):
         scanl.append(rs)
 
         ch_list = ["None"]
-        for ch in range(1, 201):
+        for ch in range(1, self._channels + 1):
             ch_list.append("Channel M%i" % ch)
 
         tmpch = list_def(_mem.sl1PriorCh1 + 1, ch_list, 0)
@@ -1184,7 +1206,7 @@ class UVK5RadioEgzumer(uvk5.UVK5RadioBase):
         # ----------------- Basic settings
 
         ch_list = []
-        for ch in range(1, 201):
+        for ch in range(1, self._channels + 1):
             ch_list.append("Channel M%i" % ch)
         for bnd in range(1, 8):
             ch_list.append("Band F%i" % bnd)
