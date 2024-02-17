@@ -490,7 +490,7 @@ class UVK5RadioEgzumer(uvk5.UVK5RadioBase):
         """generates SPECIALS"""
         specials = {}
         for idx, name in enumerate(self._get_vfo_channel_names()):
-            specials[name] = 200 + idx
+            specials[name] = self._channels + idx
         return specials
 
     # Return information about this radio's features, including
@@ -530,7 +530,7 @@ class UVK5RadioEgzumer(uvk5.UVK5RadioBase):
         except KeyError:
             number -= 1
 
-        if number < 200:
+        if number < self._channels:
             comp = list_def(self._memobj.channel_attributes[number].compander,
                             COMPANDER_LIST, 0)
         else:
@@ -554,7 +554,7 @@ class UVK5RadioEgzumer(uvk5.UVK5RadioBase):
         except KeyError:
             number = mem.number - 1
 
-        if number < 200 and 'compander' in mem.extra:
+        if number < self._channels and 'compander' in mem.extra:
             self._memobj.channel_attributes[number].compander = (
                 COMPANDER_LIST.index(str(mem.extra['compander'].value)))
 
@@ -572,7 +572,7 @@ class UVK5RadioEgzumer(uvk5.UVK5RadioBase):
             # VFO_A e80 ScreenChannel_A
             if elname == "VFO_A_chn":
                 _mem.ScreenChannel_A = element.value
-                if _mem.ScreenChannel_A < 200:
+                if _mem.ScreenChannel_A < self._channels:
                     _mem.MrChannel_A = _mem.ScreenChannel_A
                 elif _mem.ScreenChannel_A < 207:
                     _mem.FreqChannel_A = _mem.ScreenChannel_A
@@ -582,7 +582,7 @@ class UVK5RadioEgzumer(uvk5.UVK5RadioBase):
             # VFO_B e83
             elif elname == "VFO_B_chn":
                 _mem.ScreenChannel_B = element.value
-                if _mem.ScreenChannel_B < 200:
+                if _mem.ScreenChannel_B < self._channels:
                     _mem.MrChannel_B = _mem.ScreenChannel_B
                 elif _mem.ScreenChannel_B < 207:
                     _mem.FreqChannel_B = _mem.ScreenChannel_B
@@ -859,8 +859,8 @@ class UVK5RadioEgzumer(uvk5.UVK5RadioBase):
             elif elname in ["sl1PriorCh1", "sl1PriorCh2", "sl2PriorCh1",
                             "sl2PriorCh2"]:
                 val = int(element.value)
-                if val > 200 or val < 1:
-                    val = 0xff
+                if val > self._channels or val < 1:
+                    val = self._channels_max
                 else:
                     val -= 1
 
@@ -1160,7 +1160,7 @@ class UVK5RadioEgzumer(uvk5.UVK5RadioBase):
         scanl.append(rs)
 
         ch_list = ["None"]
-        for ch in range(1, 201):
+        for ch in range(1, self._channels + 1):
             ch_list.append("Channel M%i" % ch)
 
         tmpch = list_def(_mem.sl1PriorCh1 + 1, ch_list, 0)
@@ -1190,7 +1190,7 @@ class UVK5RadioEgzumer(uvk5.UVK5RadioBase):
         # ----------------- Basic settings
 
         ch_list = []
-        for ch in range(1, 201):
+        for ch in range(1, self._channels + 1):
             ch_list.append("Channel M%i" % ch)
         for bnd in range(1, 8):
             ch_list.append("Band F%i" % bnd)
@@ -1217,7 +1217,7 @@ class UVK5RadioEgzumer(uvk5.UVK5RadioBase):
         squelch_setting = RadioSetting("squelch", "Squelch (Sql)", val)
 
         ch_list = []
-        for ch in range(1, 201):
+        for ch in range(1, self._channels + 1):
             ch_list.append("Channel M%i" % ch)
 
         tmpc = list_def(_mem.call_channel, ch_list, 0)
