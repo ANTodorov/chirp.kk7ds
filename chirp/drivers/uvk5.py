@@ -556,7 +556,7 @@ def do_download(radio):
     serport.timeout = 0.5
     status = chirp_common.Status()
     status.cur = 0
-    status.max = MEM_SIZE
+    status.max = radio._mem_size
     status.msg = "Downloading from radio"
     radio.status_fn(status)
 
@@ -572,7 +572,7 @@ def do_download(radio):
     radio.metadata = {'uvk5_firmware': f}
 
     addr = 0
-    while addr < MEM_SIZE:
+    while addr < radio._mem_size:
         data = _readmem(serport, addr, MEM_BLOCK)
         status.cur = addr
         radio.status_fn(status)
@@ -595,13 +595,17 @@ def do_upload(radio):
     status.msg = "Uploading to radio"
 
     if radio._upload_calibration:
-        status.max = MEM_SIZE - radio._cal_start
+        status.max = radio._cal_length
         start_addr = radio._cal_start
-        stop_addr = MEM_SIZE
+        stop_addr = radio._cal_length
+        cal_start = radio._cal_start
+        cal_length = 0
     else:
-        status.max = PROG_SIZE
+        status.max = radio._prog_size
         start_addr = 0
-        stop_addr = PROG_SIZE
+        stop_addr = radio._prog_size
+        cal_start = radio._cal_start
+        cal_length = radio._cal_length
 
     radio.status_fn(status)
 
@@ -616,6 +620,10 @@ def do_upload(radio):
              radio.metadata.get('uvk5_firmware', 'unknown'), f)
     addr = start_addr
     while addr < stop_addr:
+        if addr == cal_start:
+            if cal_length > 0:
+                addr += cal_length
+                continue
         dat = radio.get_mmap()[addr:addr+MEM_BLOCK]
         _writemem(serport, dat, addr)
         status.cur = addr - start_addr
@@ -654,7 +662,12 @@ class UVK5RadioBase(chirp_common.CloneModeRadio):
     MODEL = "UV-K5"
     BAUD_RATE = 38400
     NEEDS_COMPAT_SERIAL = False
-    _cal_start = 0
+    _cal_start = 0x1e00
+    _cal_length = 0x0200
+    _mem_size = MEM_SIZE
+    _prog_size = PROG_SIZE
+    _channels = 200
+    _channels_max = 0xff
     _expanded_limits = False
     _upload_calibration = False
     _pttid_list = ["off", "BOT", "EOT", "BOTH"]
@@ -721,7 +734,7 @@ class UVK5RadioBase(chirp_common.CloneModeRadio):
         rf.valid_skips = [""]
 
         # This radio supports memories 1-200, 201-214 are the VFO memories
-        rf.memory_bounds = (1, 200)
+        rf.memory_bounds = (1, self._channels)
 
         rf.valid_bands = []
         for a in BANDS_NOLIMITS:
@@ -865,7 +878,7 @@ class UVK5RadioBase(chirp_common.CloneModeRadio):
         tmpscn = SCANLIST_LIST[0]
 
         # We'll also look at the channel attributes if a memory has them
-        if mem.number <= 200:
+        if mem.number <= self._channels:
             _mem3 = self._memobj.channel_attributes[mem.number - 1]
             # free memory bit
             if _mem3.is_free > 0:
@@ -959,7 +972,7 @@ class UVK5RadioBase(chirp_common.CloneModeRadio):
         if mem.empty:
             return mem
 
-        if number > 199:
+        if number > self._channels - 1:
             mem.immutable = ["name", "scanlists"]
         else:
             _mem2 = self._memobj.channelname[number]
@@ -1275,8 +1288,8 @@ class UVK5RadioBase(chirp_common.CloneModeRadio):
 
                 val = int(element.value)
 
-                if val > 200 or val < 1:
-                    val = 0xff
+                if val > self._channels or val < 1:
+                    val = self._channels_max
                 else:
                     val -= 1
 
@@ -1562,19 +1575,19 @@ class UVK5RadioBase(chirp_common.CloneModeRadio):
         scanl.append(rs)
 
         tmpch = _mem.scanlist1_priority_ch1 + 1
-        if tmpch > 200:
+        if tmpch > self._channels:
             tmpch = 0
         rs = RadioSetting("scanlist1_priority_ch1",
                           "Scanlist 1 priority channel 1 (0 - off)",
-                          RadioSettingValueInteger(0, 200, tmpch))
+                          RadioSettingValueInteger(0, self._channels, tmpch))
         scanl.append(rs)
 
         tmpch = _mem.scanlist1_priority_ch2 + 1
-        if tmpch > 200:
+        if tmpch > self._channels:
             tmpch = 0
         rs = RadioSetting("scanlist1_priority_ch2",
                           "Scanlist 1 priority channel 2 (0 - off)",
-                          RadioSettingValueInteger(0, 200, tmpch))
+                          RadioSettingValueInteger(0, self._channels, tmpch))
         scanl.append(rs)
 
         tmppr = bool((_mem.scanlist2_priority_scan & 1) > 0)
@@ -1585,29 +1598,29 @@ class UVK5RadioBase(chirp_common.CloneModeRadio):
         scanl.append(rs)
 
         tmpch = _mem.scanlist2_priority_ch1 + 1
-        if tmpch > 200:
+        if tmpch > self._channels:
             tmpch = 0
         rs = RadioSetting("scanlist2_priority_ch1",
                           "Scanlist 2 priority channel 1 (0 - off)",
-                          RadioSettingValueInteger(0, 200, tmpch))
+                          RadioSettingValueInteger(0, self._channels, tmpch))
         scanl.append(rs)
 
         tmpch = _mem.scanlist2_priority_ch2 + 1
-        if tmpch > 200:
+        if tmpch > self._channels:
             tmpch = 0
         rs = RadioSetting("scanlist2_priority_ch2",
                           "Scanlist 2 priority channel 2 (0 - off)",
-                          RadioSettingValueInteger(0, 200, tmpch))
+                          RadioSettingValueInteger(0, self._channels, tmpch))
         scanl.append(rs)
 
         # basic settings
 
         # call channel
         tmpc = _mem.call_channel+1
-        if tmpc > 200:
+        if tmpc > self._channels:
             tmpc = 1
         rs = RadioSetting("call_channel", "One key call channel",
-                          RadioSettingValueInteger(1, 200, tmpc))
+                          RadioSettingValueInteger(1, self._channels, tmpc))
         basic.append(rs)
 
         # squelch
@@ -1939,7 +1952,7 @@ class UVK5RadioBase(chirp_common.CloneModeRadio):
         # empty memory
         if mem.empty:
             _mem.set_raw("\xFF" * 16)
-            if number < 200:
+            if number < self._channels:
                 _mem2 = self._memobj.channelname[number]
                 _mem2.set_raw("\xFF" * 16)
                 _mem4.channel_attributes[number].is_scanlist1 = 0
@@ -1967,7 +1980,7 @@ class UVK5RadioBase(chirp_common.CloneModeRadio):
                          chr(prev_0a) + chr(prev_0b) + chr(prev_0c) +
                          chr(prev_0d) + chr(prev_0e) + chr(prev_0f))
 
-        if number < 200:
+        if number < self._channels:
             _mem4.channel_attributes[number].is_scanlist1 = 0
             _mem4.channel_attributes[number].is_scanlist2 = 0
             _mem4.channel_attributes[number].compander = 0
@@ -1996,12 +2009,12 @@ class UVK5RadioBase(chirp_common.CloneModeRadio):
             _mem.offset = _mem.freq
 
         # set band
-        if number < 200:
+        if number < self._channels:
             _mem4.channel_attributes[number].is_free = 0
             _mem4.channel_attributes[number].band = band
 
         # channels >200 are the 14 VFO chanells and don't have names
-        if number < 200:
+        if number < self._channels:
             _mem2 = self._memobj.channelname[number]
             tag = mem.name.ljust(10) + "\x00"*6
             _mem2.name = tag  # Store the alpha tag
@@ -2040,7 +2053,7 @@ class UVK5RadioBase(chirp_common.CloneModeRadio):
                 _mem.scrambler = (
                     _mem.scrambler & 0xf0) | SCRAMBLER_LIST.index(svalue)
 
-            if number < 200 and sname == "scanlists":
+            if number < self._channels and sname == "scanlists":
                 if svalue == "1":
                     _mem4.channel_attributes[number].is_scanlist1 = 1
                     _mem4.channel_attributes[number].is_scanlist2 = 0
